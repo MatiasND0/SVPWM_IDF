@@ -35,19 +35,74 @@ static volatile float g_target_angle_rad = 0.0f;
 // Estado del motor
 bool motor_running = true;
 
+
+// Funcion como control de volumen 
+// Se lee el encoder y se ajusta el volumen en consecuencia
+// se dispone un limite de +- 90 grados desde la posicion central (0 grados)
+// superados este valor el volumen se mantiene en el maximo o minimo
+void encoder_with_limit()
+{
+    // Leer el valor del encoder
+    float encoder_value = sensor.getAngle();
+
+    // Convertir a grados
+    encoder_value = (encoder_value * 180.0f / 3.14159265359f);
+
+    if (encoder_value > 360.0f) {
+        encoder_value = 0.0f;
+    } else if (encoder_value < -360.0f) {
+        encoder_value = 0.0f;
+    }
+
+    // Aplicar límite de +- 90 grados
+    if (encoder_value > 90.0f) {
+        encoder_value = 90.0f;
+    } else if (encoder_value < -90.0f) {
+        encoder_value = -90.0f;
+    }
+    //Mapea -90 a 90 grados a volumen 0 a 100
+    float volume = (encoder_value + 90.0f) * (100.0f / 180.0f);
+    ESP_LOGI(TAG, "Valor del encoder con límite aplicado: %.2f grados", encoder_value);
+
+    // Ajustar la posicion del motor fuera del rango
+    if (encoder_value == 90.0f) {
+        motor.move(90.0f * 3.14159265359f / 180.0f);
+    } else if (encoder_value == -90.0f) {
+        motor.move(-90.0f * 3.14159265359f / 180.0f);
+    }
+    
+
+    // Si el motor esta en el rango apago el motor para ahorrar energia
+    if (motor_running && (fabsf(encoder_value) < 90.0f)) {
+        motor.disable();
+        motor_running = false;
+        ESP_LOGI(TAG, "Motor detenido para ahorrar energía (dentro del rango).");
+    }
+    // Reactivar el motor si el encoder se sale del rango
+    else if (!motor_running && (fabsf(encoder_value) >= 90.0f)) {
+        motor.enable();
+        motor_running = true;
+        ESP_LOGI(TAG, "Motor reactivado (fuera del rango).");
+    }
+
+}
+
 void motor_control_task(void *pvParameters)
 {
     // Configuraciones del motor
     driver.voltage_power_supply = 9.0; // Voltaje del bus (ej. 6V, 12V, 24V)
-    driver.voltage_limit = 5.0;        // Límite de voltaje que el driver puede aplicar
-    motor.voltage_limit = 5.0;         // Límite de voltaje del control del motor
+    driver.voltage_limit = 9.0;        // Límite de voltaje que el driver puede aplicar
+    motor.voltage_limit = 9.0;         // Límite de voltaje del control del motor
 
-    motor.voltage_sensor_align = 8.0; // 8 Volts para la calibración
+    motor.voltage_sensor_align = 9.0; // 8 Volts para la calibración
 
     motor.controller = MotionControlType::angle;
     motor.torque_controller = TorqueControlType::voltage;     // controlador de torque por voltaje
-    motor.foc_modulation = FOCModulationType::SpaceVectorPWM; // usar SVPWM con 6PWM
-    motor.velocity_limit = 720.0f * 3.14159265359f / 180.0f;  // 720 deg/s en rad/s
+    motor.foc_modulation = FOCModulationType::SinePWM; // usar SVPWM con 6PWM
+    motor.velocity_limit = 180.0f * 3.14159265359f / 180.0f;  // 720 deg/s en rad/s
+
+    // Limitar el torque máximo (voltaje) aplicado al motor
+    
 
     // Inicialización y calibración FOC
     ESP_LOGI(TAG, "Iniciando calibración FOC (el motor debe moverse)...");
@@ -61,12 +116,28 @@ void motor_control_task(void *pvParameters)
 
         // 1) Ejecuta los algoritmos FOC
         motor.loopFOC();
-        // 2) Mueve hacia el objetivo de posición establecido por consola
-        motor.move(g_target_angle_rad);
+        // // 2) Mueve hacia el objetivo de posición establecido por consola
+        // motor.move(g_target_angle_rad);
+
+        // // Si el motor esta proximo al target, apagarlo para ahorrar energia
+        // if (motor_running && (fabsf(motor.shaft_angle - g_target_angle_rad) < (15.0f * 3.14159265359f / 180.0f))) {
+        //     motor.disable();
+        //     motor_running = false;
+        //     ESP_LOGI(TAG, "Motor detenido para ahorrar energía (cercano al target).");
+        // }
+        // // Reactivar el motor si el target se aleja suficientemente
+        // else if (!motor_running && (fabsf(motor.shaft_angle - g_target_angle_rad) >= (15.0f * 3.14159265359f / 180.0f))) {
+        //     motor.enable();
+        //     motor_running = true;
+        //     ESP_LOGI(TAG, "Motor reactivado (target alejado).");
+        // }
+
+        encoder_with_limit();
 
         vTaskDelay(pdMS_TO_TICKS(1));
     }
 }
+
 
 void motor_debug_task(void *pvParameters)
 {
