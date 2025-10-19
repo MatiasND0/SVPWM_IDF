@@ -1,0 +1,2 @@
+source /home/hhouse/ws/SVPWM_IDF/build/bootloader/gdbinit/symbols
+source /home/hhouse/ws/SVPWM_IDF/build/bootloader/gdbinit/connect
