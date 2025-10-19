@@ -1,6 +1,43 @@
 | Supported Targets | ESP32 | ESP32-C2 | ESP32-C3 | ESP32-C5 | ESP32-C6 | ESP32-C61 | ESP32-H2 | ESP32-H21 | ESP32-H4 | ESP32-P4 | ESP32-S2 | ESP32-S3 | Linux |
 | ----------------- | ----- | -------- | -------- | -------- | -------- | --------- | -------- | --------- | -------- | -------- | -------- | -------- | ----- |
 
+## Serial live plotter
+
+This repo includes a small Python tool to visualize Angle and Velocity from your ESP-IDF serial logs in real time.
+
+Example expected log line format:
+
+```
+I (99134) MOTOR_FOC_TORQUE: Angle: 3.14 rad, Velocity: 0.69 rad/s
+```
+
+### Setup
+
+Install dependencies (Python 3.9+ recommended):
+
+```
+pip install -r requirements.txt
+```
+
+### Run
+
+GUI plot (matplotlib):
+
+```
+python3 serial_plot.py --port /dev/ttyUSB0 --baud 115200
+```
+
+Headless (no GUI), print parsed values:
+
+```
+python3 serial_plot.py --port /dev/ttyUSB0 --baud 115200 --no-gui --show-ts
+```
+
+Tips:
+- Ensure your user has permissions for the serial device (e.g., add to `dialout` group on Linux or use `sudo`).
+- Adjust `--port` to match your device (e.g., `/dev/ttyUSB1`, `/dev/ttyACM0`).
+- The plot shows a rolling window; use `--max-points` to change buffer length.
+
 # Hello World Example
 
 Starts a FreeRTOS task to print "Hello World".
