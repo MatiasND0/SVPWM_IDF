@@ -16,6 +16,7 @@ AS5600::AS5600(i2c_port_t i2c_port, gpio_num_t scl_io, gpio_num_t sda_io)
     _scl_io = scl_io;
     _sda_io = sda_io;
     _is_installed = false;
+    _filtered_angle = 0.0f;
 }
 
 AS5600::~AS5600()
@@ -53,6 +54,30 @@ void AS5600::deinit()
     _is_installed = false;
 }
 
+float AS5600::filterSensor(float angle)
+{
+    float filtered_angle = 0.0f;
+
+    // Filtro simple: promedio móvil de 10 muestras
+    static float angle_buffer[10] = {0};
+    static int buffer_index = 0;
+    angle_buffer[buffer_index] = angle;
+    buffer_index = (buffer_index + 1) % 10;
+
+    float sum = 0;
+    for (int i = 0; i < 10; i++) {
+        sum += angle_buffer[i];
+    }
+    filtered_angle = sum / 10;
+
+    // // Filtro de paso bajo (complementario)
+    // float alpha = 0.1f; // Factor de suavizado (0 < alpha < 1)
+    // filtered_angle = alpha * angle + (1 - alpha) * _filtered_angle;
+
+    return filtered_angle;
+
+}
+
 float AS5600::getSensorAngle()
 {
     uint8_t raw_angle_buf[2] = {0};
@@ -61,5 +86,8 @@ float AS5600::getSensorAngle()
     }
     _raw_angle = (uint16_t)(raw_angle_buf[0] << 8 | raw_angle_buf[1]);
     _angle = (((int)_raw_angle & 0b0000111111111111) * 360.0f / 4096.0f) * (PI / 180.0f);
+
+    // _angle = filterSensor(_angle);
+
     return _angle;
 }

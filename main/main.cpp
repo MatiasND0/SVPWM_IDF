@@ -32,12 +32,15 @@ AS5600 sensor = AS5600(I2C_NUM_0, (gpio_num_t)PIN_SCL, (gpio_num_t)PIN_SDA);
 // Target de ángulo global (radianes), actualizado desde consola
 static volatile float g_target_angle_rad = 0.0f;
 
+// Estado del motor
+bool motor_running = true;
+
 void motor_control_task(void *pvParameters)
 {
     // Configuraciones del motor
     driver.voltage_power_supply = 9.0; // Voltaje del bus (ej. 6V, 12V, 24V)
-    driver.voltage_limit = 4.0;        // Límite de voltaje que el driver puede aplicar
-    motor.voltage_limit = 4.0;         // Límite de voltaje del control del motor
+    driver.voltage_limit = 5.0;        // Límite de voltaje que el driver puede aplicar
+    motor.voltage_limit = 5.0;         // Límite de voltaje del control del motor
 
     motor.voltage_sensor_align = 8.0; // 8 Volts para la calibración
 
@@ -74,7 +77,7 @@ void motor_debug_task(void *pvParameters)
                 motor.shaft_angle,
                 motor.shaft_velocity,
                 g_target_angle_rad);
-        vTaskDelay(pdMS_TO_TICKS(1));
+        vTaskDelay(pdMS_TO_TICKS(2));
     }
 }
 
@@ -121,6 +124,18 @@ void motor_console_task(void *pvParameters)
             } else {
                 ESP_LOGW(TAG, "Comando T inválido. Uso: T<grados>, ej: T30");
             }
+            return;
+        }
+
+        // Estado del motor
+        if (*line == 'S' || *line == 's') {
+            motor_running = !motor_running;
+            if (motor_running) {
+                motor.enable();
+            } else {
+                motor.disable();
+            }
+            ESP_LOGI(TAG, "Estado del motor: %s", motor_running ? "En marcha" : "Detenido");
             return;
         }
 
@@ -176,13 +191,13 @@ extern "C" void app_main(void)
 
     // Vinculación del motor, driver y sensor
     motor.linkDriver(&driver);
-    motor.linkSensor(&sensor); // Cierra el lazo con el sensor
+    motor.linkSensor(&sensor);
 
     // Crea la tarea de control del motor
     xTaskCreate(motor_control_task, "motor_control_task", 4096, NULL, 5, NULL);
     ESP_LOGI(TAG, "Tarea FOC creada.");
     // Crea la tarea de debug del motor
-    xTaskCreate(motor_debug_task, "motor_debug_task", 4096, NULL, 5, NULL);
+    // xTaskCreate(motor_debug_task, "motor_debug_task", 4096, NULL, 5, NULL);
     ESP_LOGI(TAG, "Tarea de depuración creada.");
     // Crea la tarea de comando por consola (opcional)
     xTaskCreate(motor_console_task, "motor_console_task", 8192, NULL, 5, NULL);

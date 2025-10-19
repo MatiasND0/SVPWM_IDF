@@ -46,6 +46,12 @@ public:
      */
     float getSensorAngle();
 
+    /**
+     * @brief Filter the sensor reading and update the sensor state
+     *
+     */
+    float filterSensor(float angle);
+
 private:
     i2c_bus_handle_t _i2c_bus;
     i2c_bus_device_handle_t _i2c_device;
@@ -55,4 +61,5 @@ private:
     bool _is_installed;
     uint16_t _raw_angle;
     float _angle;
+    float _filtered_angle;
 };
