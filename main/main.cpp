@@ -54,20 +54,20 @@ void encoder_with_limit()
         encoder_value = 0.0f;
     }
 
-    // Aplicar límite de +- 90 grados
-    if (encoder_value > 90.0f) {
-        encoder_value = 90.0f;
-    } else if (encoder_value < -90.0f) {
-        encoder_value = -90.0f;
+    // Aplicar límite de +- 100 grados
+    if (encoder_value > 100.0f) {
+        encoder_value = 100.0f;
+    } else if (encoder_value < -100.0f) {
+        encoder_value = -100.0f;
     }
     //Mapea -90 a 90 grados a volumen 0 a 100
     float volume = (encoder_value + 90.0f) * (100.0f / 180.0f);
     ESP_LOGI(TAG, "Valor del encoder con límite aplicado: %.2f grados", encoder_value);
 
     // Ajustar la posicion del motor fuera del rango
-    if (encoder_value == 90.0f) {
+    if (encoder_value == 100.0f) {
         motor.move(90.0f * 3.14159265359f / 180.0f);
-    } else if (encoder_value == -90.0f) {
+    } else if (encoder_value == -100.0f) {
         motor.move(-90.0f * 3.14159265359f / 180.0f);
     }
     
@@ -101,8 +101,10 @@ void motor_control_task(void *pvParameters)
     motor.foc_modulation = FOCModulationType::SinePWM; // usar SVPWM con 6PWM
     motor.velocity_limit = 180.0f * 3.14159265359f / 180.0f;  // 720 deg/s en rad/s
 
-    // Limitar el torque máximo (voltaje) aplicado al motor
-    
+    // PID velocidad
+    motor.PID_velocity.P = 0.5f;
+    motor.PID_velocity.I = 1.0f;
+    motor.PID_velocity.D = 0.0f;
 
     // Inicialización y calibración FOC
     ESP_LOGI(TAG, "Iniciando calibración FOC (el motor debe moverse)...");
@@ -194,6 +196,21 @@ void motor_console_task(void *pvParameters)
                 ESP_LOGI(TAG, "Nuevo target: %.2f deg (%.3f rad)", deg, rad);
             } else {
                 ESP_LOGW(TAG, "Comando T inválido. Uso: T<grados>, ej: T30");
+            }
+            return;
+        }
+
+        // Controlador PID
+        if (*line == 'P' || *line == 'p') {
+            line++;
+            // Permitir espacios entre P y número
+            while (*line && isspace((unsigned char)*line)) line++;
+            float p_value = 0.0f;
+            if (sscanf(line, "%f", &p_value) == 1) {
+                motor.PID_velocity.P = p_value;
+                ESP_LOGI(TAG, "Nuevo valor P del PID de velocidad: %.3f", p_value);
+            } else {
+                ESP_LOGW(TAG, "Comando P inválido. Uso: P<valor>, ej: P0.1");
             }
             return;
         }
