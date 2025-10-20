@@ -49,6 +49,13 @@ void motor_control_task(void *pvParameters)
     motor.foc_modulation = FOCModulationType::SpaceVectorPWM; // usar SVPWM con 6PWM
     motor.velocity_limit = 720.0f * 3.14159265359f / 180.0f;  // 720 deg/s en rad/s
 
+    motor.LPF_angle = 0.001f;    // Filtro paso bajo para el ángulo
+    motor.LPF_velocity = 0.05f;  // Filtro paso bajo para la velocidad
+
+    motor.PID_velocity.P = 0.5f; // Controlador PID de velocidad
+    motor.PID_velocity.I = 0.0f; // Controlador PID de velocidad
+    motor.PID_velocity.D = 0.0f; // Controlador PID de velocidad
+
     // Inicialización y calibración FOC
     ESP_LOGI(TAG, "Iniciando calibración FOC (el motor debe moverse)...");
     motor.init();
