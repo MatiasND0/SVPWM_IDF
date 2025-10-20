@@ -61,7 +61,7 @@ void motor_control_task(void *pvParameters)
     motor.init();
     motor.initFOC();
     ESP_LOGI(TAG, "Calibración FOC terminada.");
-
+    int i = 0;  
     // Bucle principal de control del motor
     while (1)
     {
@@ -69,9 +69,14 @@ void motor_control_task(void *pvParameters)
         // 1) Ejecuta los algoritmos FOC
         motor.loopFOC();
         // 2) Mueve hacia el objetivo de posición establecido por consola
-        motor.move(g_target_angle_rad);
 
-        vTaskDelay(pdMS_TO_TICKS(1));
+        i += 10;
+
+        if(i > 360) i = 0;
+
+        motor.move(i);
+
+        vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
 
