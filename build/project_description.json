@@ -1,7 +1,7 @@
 {
     "version":            "1.2",
     "project_name":       "SVPWM_IDF",
-    "project_version":    "1",
+    "project_version":    "2061732-dirty",
     "project_path":       "/home/hhouse/ws/SVPWM_IDF",
     "idf_path":           "/home/hhouse/esp/v5.5.1/esp-idf",
     "build_dir":          "/home/hhouse/ws/SVPWM_IDF/build",

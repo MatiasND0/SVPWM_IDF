@@ -1,9 +1,0 @@
-Command: cmake -G Ninja -DPYTHON_DEPS_CHECKED=1 -DPYTHON=/home/hhouse/.espressif/python_env/idf5.5_py3.10_env/bin/python -DESP_PLATFORM=1 -DCCACHE_ENABLE=0 /home/hhouse/ws/SVPWM_IDF
-CMake Warning at /home/hhouse/esp/v5.5.1/esp-idf/tools/cmake/gdbinit.cmake:52 (message):
-  Error while generating esp_rom gdbinit
-Call Stack (most recent call first):
-  /home/hhouse/esp/v5.5.1/esp-idf/tools/cmake/project.cmake:356 (__generate_gdbinit)
-  /home/hhouse/esp/v5.5.1/esp-idf/tools/cmake/project.cmake:974 (__project_info)
-  CMakeLists.txt:8 (project)
-
-
