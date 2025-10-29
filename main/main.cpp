@@ -47,20 +47,29 @@ static volatile float g_target_angle_rad = 0.0f;
 
 // Estado del motor
 bool motor_running = true;
+bool motor_control_type = false; // true: position, false: velocity
 
 void motor_control_task(void *pvParameters)
 {
     // Configuraciones del motor
-    driver.voltage_power_supply = 5.0; // Voltaje del bus (ej. 6V, 12V, 24V)
-    driver.voltage_limit = 5.0;        // Límite de voltaje que el driver puede aplicar
-    motor.voltage_limit = 5.0;         // Límite de voltaje del control del motor
+    driver.voltage_power_supply = 9.0; // Voltaje del bus (ej. 6V, 12V, 24V)
+    driver.voltage_limit = 9.0;        // Límite de voltaje que el driver puede aplicar
+    motor.voltage_limit = 9.0;         // Límite de voltaje del control del motor
 
-    motor.voltage_sensor_align = 5.0; // 5 Volts para la calibración
+    motor.voltage_sensor_align = 9.0; // 5 Volts para la calibración
 
-    motor.controller = MotionControlType::angle;
+    if (motor_control_type) {
+        ESP_LOGI(TAG, "Modo de control: Posición");
+        motor.controller = MotionControlType::angle;
+    } else {
+        ESP_LOGI(TAG, "Modo de control: Velocidad");
+        motor.controller = MotionControlType::velocity;
+    }
     motor.torque_controller = TorqueControlType::voltage;     // controlador de torque por voltaje
     motor.foc_modulation = FOCModulationType::SpaceVectorPWM; // usar SVPWM con 6PWM
     motor.velocity_limit = 2*360.0f * 3.14159265359f / 180.0f;  // 360 deg/s en rad/s
+
+    motor.current_limit = 1.0f;      // Límite de corriente (A)
 
     motor.LPF_angle = 0.001f;    // Filtro paso bajo para el ángulo
     motor.LPF_velocity = 0.05f;  // Filtro paso bajo para la velocidad
@@ -69,28 +78,47 @@ void motor_control_task(void *pvParameters)
     motor.PID_velocity.I = 0.0f; // Controlador PID de velocidad
     motor.PID_velocity.D = 0.0f; // Controlador PID de velocidad
 
-    // Inicialización y calibración FOC
     ESP_LOGI(TAG, "Iniciando calibración FOC (el motor debe moverse)...");
     motor.init();
     motor.initFOC();
     ESP_LOGI(TAG, "Calibración FOC terminada.");
-    // Bucle principal de control del motor
-    while (1)
-    {
-        motor.loopFOC();
-        motor.move(g_target_angle_rad); // Usa el target global actualizado desde consola
 
-        // Si el angulo es proximo al target, apagar el motor para ahorrar energia
-        if (motor_running && fabsf(motor.shaft_angle - g_target_angle_rad) < 0.1f) {
-            motor.disable();
-            motor_running = false;
-            ESP_LOGI(TAG, "Motor detenido automáticamente (llegó al target).");
+    while (1)   
+    {
+        if(motor_control_type)
+        {
+            motor.loopFOC();
+            motor.move(g_target_angle_rad); // Usa el target global actualizado desde consola
+
+            // Si el angulo es proximo al target, apagar el motor para ahorrar energia
+            if (motor_running && fabsf(motor.shaft_angle - g_target_angle_rad) < 0.1f) {
+                motor.disable();
+                motor_running = false;
+                ESP_LOGI(TAG, "Motor detenido automáticamente (llegó al target).");
+            }
+            // Si se alejo del target, volver a activar el motor
+            else if (!motor_running && fabsf(motor.shaft_angle - g_target_angle_rad) >= 0.1f) {
+                motor.enable();
+                motor_running = true;
+                ESP_LOGI(TAG, "Motor reactivado (target cambiado).");
+            }
         }
-        // Si se alejo del target, volver a activar el motor
-        else if (!motor_running && fabsf(motor.shaft_angle - g_target_angle_rad) >= 0.1f) {
-            motor.enable();
-            motor_running = true;
-            ESP_LOGI(TAG, "Motor reactivado (target cambiado).");
+        else
+        {
+            motor.loopFOC();
+            // Calcular velocidad objetivo basada en la diferencia de ángulo
+            float angle_error = g_target_angle_rad - motor.shaft_angle;
+            // Ajustar la velocidad objetivo proporcionalmente al error de ángulo
+            float Kp_angle_to_velocity = 5.0f; // Ganancia proporcional (ajustable)
+            float target_velocity = Kp_angle_to_velocity * angle_error;
+            // Limitar la velocidad objetivo al límite establecido
+            if (target_velocity > motor.velocity_limit) {
+                target_velocity = motor.velocity_limit;
+            } else if (target_velocity < -motor.velocity_limit) {
+                target_velocity = -motor.velocity_limit;
+            }
+
+            motor.move(target_velocity);
         }
     }
 }
