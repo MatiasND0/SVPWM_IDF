@@ -29,7 +29,9 @@ static const char* foc_modulation_name(FOCModulationType m) {
 #define PIN_WH 32
 #define PIN_WL 33
 #define POLE_PAIRS 7
-
+// #define MOTOR_KV 220
+// #define MOTOR_R 1.2f  // Ohm
+// #define MOTOR_L 0.000280 // Henry
 // Pines del Sensor
 #define PIN_SDA 21
 #define PIN_SCL 22
@@ -49,16 +51,16 @@ bool motor_running = true;
 void motor_control_task(void *pvParameters)
 {
     // Configuraciones del motor
-    driver.voltage_power_supply = 9.0; // Voltaje del bus (ej. 6V, 12V, 24V)
+    driver.voltage_power_supply = 5.0; // Voltaje del bus (ej. 6V, 12V, 24V)
     driver.voltage_limit = 5.0;        // Límite de voltaje que el driver puede aplicar
     motor.voltage_limit = 5.0;         // Límite de voltaje del control del motor
 
-    motor.voltage_sensor_align = 8.0; // 8 Volts para la calibración
+    motor.voltage_sensor_align = 5.0; // 5 Volts para la calibración
 
     motor.controller = MotionControlType::angle;
     motor.torque_controller = TorqueControlType::voltage;     // controlador de torque por voltaje
     motor.foc_modulation = FOCModulationType::SpaceVectorPWM; // usar SVPWM con 6PWM
-    motor.velocity_limit = 360.0f * 3.14159265359f / 180.0f;  // 360 deg/s en rad/s
+    motor.velocity_limit = 2*360.0f * 3.14159265359f / 180.0f;  // 360 deg/s en rad/s
 
     motor.LPF_angle = 0.001f;    // Filtro paso bajo para el ángulo
     motor.LPF_velocity = 0.05f;  // Filtro paso bajo para la velocidad
@@ -77,6 +79,19 @@ void motor_control_task(void *pvParameters)
     {
         motor.loopFOC();
         motor.move(g_target_angle_rad); // Usa el target global actualizado desde consola
+
+        // Si el angulo es proximo al target, apagar el motor para ahorrar energia
+        if (motor_running && fabsf(motor.shaft_angle - g_target_angle_rad) < 0.1f) {
+            motor.disable();
+            motor_running = false;
+            ESP_LOGI(TAG, "Motor detenido automáticamente (llegó al target).");
+        }
+        // Si se alejo del target, volver a activar el motor
+        else if (!motor_running && fabsf(motor.shaft_angle - g_target_angle_rad) >= 0.1f) {
+            motor.enable();
+            motor_running = true;
+            ESP_LOGI(TAG, "Motor reactivado (target cambiado).");
+        }
     }
 }
 
